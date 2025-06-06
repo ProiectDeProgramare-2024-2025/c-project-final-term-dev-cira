@@ -1,0 +1,216 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
+#define MAX_STR 100
+
+struct Order {
+    char customer[MAX_STR];
+    char item[MAX_STR];
+    char location[MAX_STR];
+};
+
+// Console colors (ANSI)
+#define COLOR_RESET   "\033[0m"
+#define COLOR_BLUE    "\033[1;34m"
+#define COLOR_GREEN   "\033[1;32m"
+#define COLOR_ORANGE  "\033[38;5;208m"
+#define COLOR_GRAY    "\033[1;30m"
+#define COLOR_YELLOW  "\033[1;33m"
+#define COLOR_RED     "\033[1;31m"
+
+void cls() {
+#ifdef _WIN32
+    system("cls");
+#else
+    system("clear");
+#endif
+}
+
+int getIntLimited(const char* prompt, int min, int max) {
+    int val;
+    char temp[MAX_STR];
+    while (1) {
+        printf("%s", prompt);
+        if (fgets(temp, sizeof(temp), stdin)) {
+            if (sscanf(temp, "%d", &val) == 1) {
+                if (val >= min && val <= max) {
+                    printf("%s✅ Input accepted.%s\n", COLOR_GREEN, COLOR_RESET);
+                    return val;
+                } else {
+                    printf("%s🚫 Number out of range. Must be between %d and %d.%s\n", COLOR_RED, min, max, COLOR_RESET);
+                }
+            } else {
+                printf("%s🚫 Must be a number.%s\n", COLOR_RED, COLOR_RESET);
+            }
+        }
+    }
+}
+
+void getValidatedName(const char* prompt, char* output) {
+    while (1) {
+        printf("%s", prompt);
+        fgets(output, MAX_STR, stdin);
+        output[strcspn(output, "\n")] = 0;
+        int valid = 1;
+        for (int i = 0; i < strlen(output); i++) {
+            if (isdigit(output[i])) {
+                valid = 0;
+                break;
+            }
+        }
+        if (valid && strlen(output) > 0) {
+            printf("%s✅ Name accepted.%s\n", COLOR_GREEN, COLOR_RESET);
+            return;
+        } else {
+            printf("%s🚫 Invalid input. Must be a name (no numbers).%s\n", COLOR_RED, COLOR_RESET);
+        }
+    }
+}
+
+void getValidatedLocation(const char* prompt, char* output) {
+    while (1) {
+        printf("%s", prompt);
+        fgets(output, MAX_STR, stdin);
+        output[strcspn(output, "\n")] = 0;
+
+        // Basic format: city street number (3 parts)
+        char city[MAX_STR], street[MAX_STR];
+        int number;
+        if (sscanf(output, "%s %s %d", city, street, &number) == 3) {
+            int valid = 1;
+            for (int i = 0; i < strlen(city); i++) {
+                if (isdigit(city[i])) valid = 0;
+            }
+            for (int i = 0; i < strlen(street); i++) {
+                if (isdigit(street[i])) valid = 0;
+            }
+            if (valid) {
+                printf("%s✅ Location accepted.%s\n", COLOR_GREEN, COLOR_RESET);
+                return;
+            } else {
+                printf("%s🚫 City and street must not contain numbers.%s\n", COLOR_RED, COLOR_RESET);
+            }
+        } else {
+            printf("%s🚫 Must be in format: city street number.%s\n", COLOR_RED, COLOR_RESET);
+        }
+    }
+}
+
+void pauseApp() {
+    printf("\nPress Enter to continue...");
+    getchar();
+    cls();
+}
+
+void writeOrder(struct Order order) {
+    FILE* f = fopen("orders.txt", "a");
+    if (f) {
+        fprintf(f, "%s: %s to %s\n", order.customer, order.item, order.location);
+        fclose(f);
+    } else {
+        printf("Error: Could not write to file.\n");
+    }
+}
+
+void readOrders() {
+    FILE* f = fopen("orders.txt", "r");
+    char line[MAX_STR];
+    printf("%s--- Order History ---%s\n", COLOR_GRAY, COLOR_RESET);
+    if (!f) {
+        printf("No orders found or cannot open file.\n");
+    } else {
+        while (fgets(line, MAX_STR, f)) {
+            printf("%s", line);
+        }
+        fclose(f);
+    }
+    printf("%s----------------------%s\n", COLOR_GRAY, COLOR_RESET);
+    pauseApp();
+}
+
+void orderFood(struct Order* order) {
+    int restChoice, opt;
+    char item[MAX_STR] = "";
+    cls();
+    printf("Select Restaurant:\n");
+    printf("1) Pizza Place\n2) Burger Joint\n3) Sushi Bar\n");
+    restChoice = getIntLimited(COLOR_BLUE "Enter choice (1-3): " COLOR_RESET, 1, 3);
+
+    switch (restChoice) {
+        case 1:
+            cls();
+            printf("Pizza Options:\n1) Default Pizza\n2) Custom Pizza\n");
+            opt = getIntLimited("Enter choice: ", 1, 2);
+            if (opt == 1) strcpy(item, "Pizza: Default");
+            else {
+                int size = getIntLimited("✅ Pizza Size (1=Small, 2=Medium, 3=Large): ", 1, 3);
+                switch (size) {
+                    case 1: strcpy(item, "Pizza: Small"); break;
+                    case 2: strcpy(item, "Pizza: Medium"); break;
+                    case 3: strcpy(item, "Pizza: Large"); break;
+                }
+                int extra = getIntLimited("✅ Add Extra Cheese? (1=Yes, 2=No): ", 1, 2);
+                if (extra == 1) strcat(item, " w/Extra Cheese");
+            }
+            break;
+        case 2:
+            cls();
+            printf("Burger Options:\n1) Classic\n2) With Fries\n");
+            opt = getIntLimited("Enter choice: ", 1, 2);
+            if (opt == 1) strcpy(item, "Burger: Classic");
+            else strcpy(item, "Burger: With Fries");
+            break;
+        case 3:
+            cls();
+            printf("Sushi Options:\n1) Sushi Set\n2) Deluxe Sushi Set\n");
+            opt = getIntLimited("Enter choice: ", 1, 2);
+            if (opt == 1) strcpy(item, "Sushi: Set");
+            else strcpy(item, "Sushi: Deluxe");
+            break;
+    }
+
+    strcpy(order->item, item);
+    cls();
+    getValidatedLocation("✅ Delivery Location (city street number): ", order->location);
+    cls();
+    writeOrder(*order);
+    printf("%sOrder Placed Successfully!%s\n", COLOR_GREEN, COLOR_RESET);
+    printf("Details: %s%s%s: %s%s%s to %s%s%s\n",
+           COLOR_BLUE, order->customer, COLOR_RESET,
+           COLOR_GREEN, order->item, COLOR_RESET,
+           COLOR_ORANGE, order->location, COLOR_RESET);
+    pauseApp();
+}
+
+int main() {
+    struct Order currentOrder;
+
+    cls();
+    getValidatedName("✅ Enter your name: ", currentOrder.customer);
+
+    while (1) {
+        printf("\n%sMain Menu (User: %s)%s\n", COLOR_GRAY, currentOrder.customer, COLOR_RESET);
+        printf("1) Order Food\n2) View Order History\n3) Quit\n");
+        int choice = getIntLimited("Choice: ", 1, 3);
+        switch (choice) {
+            case 1:
+                orderFood(&currentOrder);
+                break;
+            case 2:
+                readOrders();
+                break;
+            case 3:
+                cls();
+                printf("Exiting. Goodbye, %s%s%s!\n", COLOR_BLUE, currentOrder.customer, COLOR_RESET);
+                exit(0);
+        }
+    }
+    return 0;
+}
